@@ -55,11 +55,14 @@ vizrender compiles .typ → SVG → PNG. Then:
 3. **`--open` flag**: always opens in system viewer regardless of vizwatch.
 4. **`--no-display`**: compile only, no display.
 
-To start the floating viewer:
+To start the viewer (user runs this once before starting work):
 ```bash
+# Browser mode — floating Chrome window (works everywhere)
 ${CLAUDE_PLUGIN_ROOT}/scripts/vizwatch
+
+# Terminal mode — displays in a tmux/zellij split pane
+${CLAUDE_PLUGIN_ROOT}/scripts/vizwatch --mode terminal --clear
 ```
-This opens a small browser window that auto-updates whenever vizrender produces a new image.
 
 ## Core Workflow
 

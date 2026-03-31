@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-vizwatch — floating image viewer for inline-viz.
+vizwatch — image viewer for inline-viz.
 
-Starts a tiny HTTP server that serves the latest rendered image with
-auto-refresh. Opens in a small browser window that acts as a floating
-preview pane. vizrender writes to a watch directory; the browser
-auto-updates whenever a new image appears.
+Two modes:
+  --mode browser   Floating browser window (default). Works everywhere.
+  --mode terminal  Displays images in current terminal pane using
+                   kitty/iTerm2 graphics protocol. Best for tmux/zellij
+                   split panes where the terminal has direct access.
 
 Usage:
-    vizwatch [--port PORT] [--watch-dir DIR] [--no-open]
+    vizwatch                          # browser mode
+    vizwatch --mode terminal          # terminal pane mode (for tmux/zellij)
+    vizwatch --mode terminal --clear  # clear between updates
 """
 
 import argparse
@@ -18,7 +21,6 @@ import os
 import socketserver
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
@@ -124,7 +126,7 @@ class WatchState:
         self.source_path = None
 
     def check(self):
-        """Check for new images in watch dir."""
+        """Check for new images in watch dir. Returns True if updated."""
         meta_file = self.watch_dir / "latest.json"
         if meta_file.exists():
             try:
@@ -135,8 +137,10 @@ class WatchState:
                     self.latest_path = data.get("displayed")
                     self.source_path = data.get("source")
                     self.latest_mtime = mtime
+                    return True
             except (json.JSONDecodeError, OSError):
                 pass
+        return False
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -177,16 +181,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        pass  # silence logs
+        pass
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Floating image viewer for inline-viz")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--watch-dir", type=str, default=str(WATCH_DIR))
-    parser.add_argument("--no-open", action="store_true", help="Don't open browser")
-    args = parser.parse_args()
-
+def run_browser_mode(args):
+    """HTTP server + floating browser window."""
     state = WatchState(args.watch_dir)
     Handler.state = state
 
@@ -197,7 +196,6 @@ def main():
         print(f"vizwatch: watching {args.watch_dir}")
 
         if not args.no_open:
-            # Try Chrome app mode (floating window), fall back to default browser
             try:
                 subprocess.Popen([
                     "open", "-na", "Google Chrome", "--args",
@@ -213,6 +211,57 @@ def main():
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nvizwatch: stopped")
+
+
+def run_terminal_mode(args):
+    """Poll watch dir and display images in current terminal via vizshow."""
+    script_dir = Path(__file__).resolve().parent
+    vizshow = script_dir / "vizshow"
+    state = WatchState(args.watch_dir)
+
+    print(f"vizwatch: terminal mode — displaying in this pane")
+    print(f"vizwatch: watching {args.watch_dir}")
+    print(f"vizwatch: waiting for vizrender...\n")
+
+    try:
+        while True:
+            if state.check() and state.latest_path and os.path.exists(state.latest_path):
+                if args.clear:
+                    # Clear terminal (works in tmux/zellij panes)
+                    print("\033[2J\033[H", end="", flush=True)
+
+                # Display image using vizshow — direct terminal access
+                subprocess.run(
+                    [str(vizshow), state.latest_path, "--quiet"],
+                    check=False,
+                )
+
+                # Print source info below image
+                source = state.source_path or state.latest_path
+                print(f"\033[90m{os.path.basename(source)}\033[0m")
+
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nvizwatch: stopped")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Image viewer for inline-viz")
+    parser.add_argument("--mode", choices=["browser", "terminal"], default="browser",
+                        help="browser: floating window (default). terminal: display in current pane (for tmux/zellij)")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT,
+                        help="HTTP port for browser mode (default: 52342)")
+    parser.add_argument("--watch-dir", type=str, default=str(WATCH_DIR))
+    parser.add_argument("--no-open", action="store_true",
+                        help="Don't open browser (browser mode only)")
+    parser.add_argument("--clear", action="store_true",
+                        help="Clear terminal between updates (terminal mode only)")
+    args = parser.parse_args()
+
+    if args.mode == "terminal":
+        run_terminal_mode(args)
+    else:
+        run_browser_mode(args)
 
 
 if __name__ == "__main__":
