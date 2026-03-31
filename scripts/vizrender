@@ -137,21 +137,21 @@ if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]] && [[ "$DISPLAY" == true
   if [[ "$OPEN" == true ]]; then
     open "$DISPLAY_FILE"
   elif [[ -n "${TMUX:-}" ]]; then
-    # Inside tmux — open vizwatch in a split pane (auto-updates via watch dir)
+    # Inside tmux — open vizwatch in a terminal split pane
+    # (kitty/iterm2 protocol works via passthrough; needs allow-passthrough on)
     if ! tmux list-panes -F '#{pane_title}' 2>/dev/null | grep -q 'vizwatch'; then
       tmux split-window -h -l 40% \
         "${SCRIPT_DIR}/vizwatch" --mode terminal --clear \; \
         select-pane -T vizwatch \; \
         select-pane -l
-      # Give vizwatch a moment to start polling
       sleep 0.5
     fi
   elif [[ -n "${ZELLIJ:-}" ]]; then
-    # Inside zellij — open vizwatch in a floating pane
-    if ! zellij action query-tab-names 2>/dev/null | grep -q 'vizwatch'; then
-      zellij run --floating --name vizwatch -- \
-        "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
-      sleep 0.5
+    # Inside zellij — no kitty graphics support, use browser floating window
+    if ! curl -s -o /dev/null "http://localhost:${INLINE_VIZ_PORT:-52342}/api/latest" 2>/dev/null; then
+      "${SCRIPT_DIR}/vizwatch" --mode browser &
+      disown
+      sleep 1
     fi
   else
     # Default: open in system viewer

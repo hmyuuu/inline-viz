@@ -50,8 +50,8 @@ Output includes file paths:
 
 vizrender compiles .typ → SVG → PNG. Display is automatic:
 
-- **tmux**: auto-opens a vizwatch split pane on first render (kitty/iTerm2 graphics protocol, auto-updates)
-- **zellij**: auto-opens a vizwatch floating pane on first render
+- **tmux**: auto-opens a vizwatch terminal split pane (kitty/iTerm2 graphics protocol via passthrough)
+- **zellij**: auto-opens a vizwatch browser floating window (zellij lacks kitty graphics support)
 - **otherwise**: opens the image with `open` (Preview.app on macOS)
 - **`--open` flag**: always opens in system viewer
 - **`--no-display`**: compile only, no display
