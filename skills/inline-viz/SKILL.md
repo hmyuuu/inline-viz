@@ -13,7 +13,7 @@ Render typst diagrams and display them via a floating preview window. The window
 
 ## Behavior
 
-Render immediately. No preamble, no narration. Just write the .typ and call vizrender. The image is the response.
+Render immediately. No preamble, no narration, no post-render summary. Just write the .typ and call vizrender. The image is the response. Do not describe what you rendered — the user can see it.
 
 ## IMPORTANT: Writing .typ Files
 
@@ -64,22 +64,20 @@ vizrender compiles .typ → SVG → PNG. Display is automatic:
 4. **Reason from .typ source** for iteration — you already know the structure because you wrote it
 5. **Only use vision readback** (Read the .png) when you cannot reason about layout from the source alone (e.g., judging aesthetic spacing, verifying visual overlap, confirming color contrast)
 
-## Templates
+## How to Write .typ Files
 
-Import via `sys.inputs.template-dir` (automatically set by vizrender):
+Write typst directly — import `@preview/` packages as needed. Do NOT use `sys.inputs.template-dir` (it doesn't work for imports).
 
-| Template | Import | Use For |
-|----------|--------|---------|
-| pixel-art | `#import sys.inputs.template-dir + "/pixel-art.typ": *` | Pixel art character scenes |
-| qec | `#import sys.inputs.template-dir + "/qec.typ": *` | QEC surface/toric/color codes |
-| quantum-control | `#import sys.inputs.template-dir + "/quantum-control.typ": *` | Circuit + Bloch + pulse panels |
-| tensor-network | `#import sys.inputs.template-dir + "/tensor-network.typ": *` | MPS, honeycomb, MERA, iPEPS |
-| bdd | `#import sys.inputs.template-dir + "/bdd.typ": *` | Binary decision diagrams |
-| feynman | `#import sys.inputs.template-dir + "/feynman.typ": *` | Feynman diagrams |
-| plot | `#import sys.inputs.template-dir + "/plot.typ": *` | Data plots (line, scatter, heatmap) |
-| paper-layout | `#import sys.inputs.template-dir + "/paper-layout.typ": *` | Multi-panel figure arrangement |
+Reference templates are at `${CLAUDE_PLUGIN_ROOT}/templates/` — read them for API examples, but don't import them. Just write the typst code inline.
 
-Writing `.typ` from scratch works for simple or custom diagrams.
+| Package | Import | Use For |
+|---------|--------|---------|
+| pixel-family | `#import "@preview/pixel-family:0.1.0": *` | Pixel art characters |
+| cetz | `#import "@preview/cetz:0.4.2": canvas, draw` | General drawing (circuits, TN, Feynman) |
+| cetz-plot | `#import "@preview/cetz-plot:0.1.2": *` | Data plots |
+| typdd | `#import "@local/typdd:0.1.0": *` | Binary decision diagrams |
+
+Always set `#set page(width: auto, height: auto, margin: 12pt)` for inline display.
 
 ## Readback: When to Use What
 

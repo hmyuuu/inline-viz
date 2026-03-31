@@ -122,31 +122,7 @@ if [[ "$DISPLAY" == true ]] || [[ "$OPEN" == true ]]; then
   esac
 fi
 
-# ── Display ──────────────────────────────────────────────────────────────
-if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]] && [[ "$DISPLAY" == true ]]; then
-  if [[ "$OPEN" == true ]]; then
-    open "$DISPLAY_FILE"
-  elif [[ -n "${TMUX:-}" ]]; then
-    # Inside tmux — open vizwatch in a split pane (auto-updates via watch dir)
-    if ! tmux list-panes -F '#{pane_title}' 2>/dev/null | grep -q 'vizwatch'; then
-      tmux split-window -h -l 40% -t "{last}" \
-        "${SCRIPT_DIR}/vizwatch --mode terminal --clear" \; \
-        select-pane -t "{last}" -T vizwatch \; \
-        select-pane -t "{previous}"
-    fi
-  elif [[ -n "${ZELLIJ:-}" ]]; then
-    # Inside zellij — open vizwatch in a floating pane
-    if ! zellij action query-tab-names 2>/dev/null | grep -q 'vizwatch'; then
-      zellij run --floating --name vizwatch -- \
-        "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
-    fi
-  else
-    # Default: open in system viewer
-    open "$DISPLAY_FILE"
-  fi
-fi
-
-# ── Notify vizwatch ──────────────────────────────────────────────────────
+# ── Write watch file (before display, so vizwatch can pick it up) ────────
 WATCH_DIR="${INLINE_VIZ_WATCH_DIR:-/tmp/inline-viz-watch}"
 if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
   ABS_DISPLAY="$(cd "$(dirname "$DISPLAY_FILE")" && pwd)/$(basename "$DISPLAY_FILE")"
@@ -154,6 +130,33 @@ if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
   cat > "$WATCH_DIR/latest.json" << WATCHEOF
 {"displayed":"$ABS_DISPLAY","source":"$ABS_INPUT","rendered":"$ABS_OUTPUT"}
 WATCHEOF
+fi
+
+# ── Display ──────────────────────────────────────────────────────────────
+if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]] && [[ "$DISPLAY" == true ]]; then
+  if [[ "$OPEN" == true ]]; then
+    open "$DISPLAY_FILE"
+  elif [[ -n "${TMUX:-}" ]]; then
+    # Inside tmux — open vizwatch in a split pane (auto-updates via watch dir)
+    if ! tmux list-panes -F '#{pane_title}' 2>/dev/null | grep -q 'vizwatch'; then
+      tmux split-window -h -l 40% \
+        "${SCRIPT_DIR}/vizwatch" --mode terminal --clear \; \
+        select-pane -T vizwatch \; \
+        select-pane -l
+      # Give vizwatch a moment to start polling
+      sleep 0.5
+    fi
+  elif [[ -n "${ZELLIJ:-}" ]]; then
+    # Inside zellij — open vizwatch in a floating pane
+    if ! zellij action query-tab-names 2>/dev/null | grep -q 'vizwatch'; then
+      zellij run --floating --name vizwatch -- \
+        "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
+      sleep 0.5
+    fi
+  else
+    # Default: open in system viewer
+    open "$DISPLAY_FILE"
+  fi
 fi
 
 # ── Structured output ────────────────────────────────────────────────────

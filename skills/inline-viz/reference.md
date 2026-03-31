@@ -1,66 +1,44 @@
-# Inline Viz — Template API Reference
+# Inline Viz — Quick Reference
 
 ## Scripts
 
 | Script | Usage | Key Options |
 |--------|-------|-------------|
 | `vizshow` | `${CLAUDE_PLUGIN_ROOT}/scripts/vizshow <image>` | `--width N`, `--protocol P`, `--quiet` |
-| `vizrender` | `${CLAUDE_PLUGIN_ROOT}/scripts/vizrender <file.typ>` | `--format svg|png|pdf`, `--no-display`, `--width N`, `--open` |
+| `vizrender` | `${CLAUDE_PLUGIN_ROOT}/scripts/vizrender <file.typ>` | `--format svg\|png\|pdf`, `--no-display`, `--open` |
 
-## pixel-art.typ
-
-```typst
-scene((alice(size: 2cm), bob(size: 2cm)), caption: "Hello")
-```
-
-## qec.typ
+## Packages
 
 ```typst
-qec-surface(5, errors: ((2,1), (3,3)), corrections: (((2,1),(3,3)),))
+#import "@preview/pixel-family:0.1.0": *       // pixel art
+#import "@preview/cetz:0.4.2": canvas, draw    // drawing
+#import "@preview/cetz-plot:0.1.2": *           // plots
+#import "@local/typdd:0.1.0": *                 // BDD
 ```
 
-## quantum-control.typ
+## Patterns
 
+Pixel art:
 ```typst
-control-panel(
-  trajectory: ((0, 0, 0), (0.5, 1.57, 0.1), (1.0, 1.57, 0.2)),
-  pulses: ((0, 125, 0), (5, 120, 10), (10, 100, 15), (15, 50, 8), (20, 0, 0)),
-)
+#set page(width: auto, height: auto, margin: 12pt)
+#align(center)[#stack(dir: ltr, spacing: 1cm, alice(size: 2cm), bob(size: 2cm))]
 ```
 
-## tensor-network.typ
-
+Data plot:
 ```typst
-mps(6, bond-dims: (4, 8, 12, 8, 4))
-honeycomb(rows: 3, cols: 3, couplings: (x: 1, y: 1, z: 0.5))
+#import "@preview/cetz:0.4.2": canvas
+#import "@preview/cetz-plot:0.1.2": *
+#set page(width: auto, height: auto, margin: 12pt)
+#canvas({ plot.plot(size: (8,5), x-label: $x$, y-label: $y$, {
+  plot.add(data)
+})})
 ```
 
-## bdd.typ
-
+BDD:
 ```typst
-bdd-single("(a & b) | c", style: "paper")
-bdd-compare("(a & b) | c", orderings: (("a", "b", "c"), ("c", "b", "a")))
+#import "@local/typdd:0.1.0": *
+#set page(width: auto, height: auto, margin: 12pt)
+#bdd("(a & b) | (a & c) | (b & c)", style: "paper")
 ```
 
-## feynman.typ
-
-```typst
-feynman-diagram(
-  vertices: (v1: (0,0), v2: (2,0), v3: (1,1.5)),
-  propagators: (("v1","v2","fermion",$p$), ("v2","v3","photon",$gamma$), ("v3","v1","fermion",$p'$)),
-)
-```
-
-## plot.typ
-
-```typst
-line-plot(data, x-label: $t$, y-label: $f(t)$, title: "Signal")
-scatter(data, x-label: $x$, y-label: $y$)
-multi-plot((series1, series2), x-label: $t$)
-```
-
-## paper-layout.typ
-
-```typst
-figure-panel((("a", [panel-a-content]), ("b", [panel-b-content])), columns: 2)
-```
+Template files at `${CLAUDE_PLUGIN_ROOT}/templates/` contain more examples — read them for API reference when needed.
