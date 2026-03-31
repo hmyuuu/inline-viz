@@ -106,12 +106,12 @@ if [[ "$DISPLAY" == true ]] || [[ "$OPEN" == true ]]; then
       # Convert SVG → PNG for terminal display
       DISPLAY_FILE="${INPUT_DIR}/${BASENAME}.png"
       if [[ -x /opt/homebrew/bin/rsvg-convert ]]; then
-        /opt/homebrew/bin/rsvg-convert "$ABS_OUTPUT" -o "$DISPLAY_FILE"
+        /opt/homebrew/bin/rsvg-convert -d "$DPI" -p "$DPI" "$ABS_OUTPUT" -o "$DISPLAY_FILE"
       elif command -v magick &>/dev/null; then
-        magick "$ABS_OUTPUT" "$DISPLAY_FILE"
+        magick -density "$DPI" "$ABS_OUTPUT" "$DISPLAY_FILE"
       else
         # Fallback: compile directly to PNG via typst
-        if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$DISPLAY_FILE"; then
+        if ! typst compile --ppi "$DPI" "${TYPST_ARGS[@]}" "$ABS_INPUT" "$DISPLAY_FILE"; then
           echo "vizrender: failed to create display PNG" >&2
           DISPLAY_FILE=""
         fi
@@ -123,7 +123,7 @@ if [[ "$DISPLAY" == true ]] || [[ "$OPEN" == true ]]; then
     pdf)
       # Convert PDF → PNG for display via typst compile
       DISPLAY_FILE="${INPUT_DIR}/${BASENAME}.png"
-      if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$DISPLAY_FILE"; then
+      if ! typst compile --ppi "$DPI" "${TYPST_ARGS[@]}" "$ABS_INPUT" "$DISPLAY_FILE"; then
         echo "vizrender: failed to create display PNG from PDF" >&2
         DISPLAY_FILE=""
       fi
@@ -160,8 +160,13 @@ if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]] && [[ "$DISPLAY" == true
     # Spawn a separate OS terminal window running vizwatch instead.
     if ! pgrep -f "vizwatch.*--mode terminal" > /dev/null 2>&1; then
       if [[ -n "${GHOSTTY_RESOURCES_DIR:-}" ]]; then
-        # Ghostty: open a new small OS window
-        ghostty -e "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
+        # Ghostty on macOS: open a small window with auto-float keybind
+        # User can press Ctrl+Shift+F to toggle float-on-top
+        open -na Ghostty.app --args \
+          --window-width=60 --window-height=30 \
+          --title=vizwatch \
+          --keybind=ctrl+shift+f=toggle_window_float_on_top \
+          -e "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
       elif [[ -n "${KITTY_PID:-}" ]]; then
         # Kitty: open a new OS window
         kitty @ launch --type=os-window --title=vizwatch \
