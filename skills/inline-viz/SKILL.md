@@ -48,27 +48,19 @@ Output includes file paths:
 
 ## How Display Works
 
-vizrender compiles .typ → SVG → PNG. Then:
+vizrender compiles .typ → SVG → PNG. Display is automatic:
 
-1. **If vizwatch is running** (floating browser window): the window auto-updates with the new image. No action needed.
-2. **If vizwatch is NOT running**: falls back to `open` command, which opens the image in Preview.app.
-3. **`--open` flag**: always opens in system viewer regardless of vizwatch.
-4. **`--no-display`**: compile only, no display.
-
-To start the viewer (user runs this once before starting work):
-```bash
-# Browser mode — floating Chrome window (works everywhere)
-${CLAUDE_PLUGIN_ROOT}/scripts/vizwatch
-
-# Terminal mode — displays in a tmux/zellij split pane
-${CLAUDE_PLUGIN_ROOT}/scripts/vizwatch --mode terminal --clear
-```
+- **tmux**: auto-opens a vizwatch split pane on first render (kitty/iTerm2 graphics protocol, auto-updates)
+- **zellij**: auto-opens a vizwatch floating pane on first render
+- **otherwise**: opens the image with `open` (Preview.app on macOS)
+- **`--open` flag**: always opens in system viewer
+- **`--no-display`**: compile only, no display
 
 ## Core Workflow
 
 1. **Write** a `.typ` file via Bash (cat heredoc) — never use the Write tool
 2. **Render**: `${CLAUDE_PLUGIN_ROOT}/scripts/vizrender input.typ`
-3. The image appears in the **floating window** (or Preview.app as fallback)
+3. The image appears automatically (tmux/zellij split pane, or Preview.app)
 4. **Reason from .typ source** for iteration — you already know the structure because you wrote it
 5. **Only use vision readback** (Read the .png) when you cannot reason about layout from the source alone (e.g., judging aesthetic spacing, verifying visual overlap, confirming color contrast)
 
