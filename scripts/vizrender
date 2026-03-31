@@ -122,23 +122,38 @@ if [[ "$DISPLAY" == true ]] || [[ "$OPEN" == true ]]; then
   esac
 fi
 
-# ── Display or open ──────────────────────────────────────────────────────
-if [[ "$OPEN" == true ]] && [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
-  open "$DISPLAY_FILE"
-elif [[ "$DISPLAY" == true ]] && [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
-  WIDTH_ARG=""
-  if [[ -n "$WIDTH" ]]; then
-    WIDTH_ARG="--width $WIDTH"
+# ── Display ──────────────────────────────────────────────────────────────
+if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
+  if [[ "$OPEN" == true ]]; then
+    # Explicit --open: use system viewer
+    open "$DISPLAY_FILE"
+  elif [[ "$DISPLAY" == true ]]; then
+    # Check if vizwatch is running (floating window will auto-update via watch dir)
+    WATCH_DIR="${INLINE_VIZ_WATCH_DIR:-/tmp/inline-viz-watch}"
+    if curl -s -o /dev/null "http://localhost:${INLINE_VIZ_PORT:-52342}/api/latest" 2>/dev/null; then
+      # vizwatch is running — it will pick up latest.json automatically
+      :
+    else
+      # vizwatch not running — fallback to open
+      open "$DISPLAY_FILE"
+    fi
   fi
-  "$SCRIPT_DIR/vizshow" "$DISPLAY_FILE" $WIDTH_ARG || true
+fi
+
+# ── Notify vizwatch ──────────────────────────────────────────────────────
+WATCH_DIR="${INLINE_VIZ_WATCH_DIR:-/tmp/inline-viz-watch}"
+if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
+  ABS_DISPLAY="$(cd "$(dirname "$DISPLAY_FILE")" && pwd)/$(basename "$DISPLAY_FILE")"
+  mkdir -p "$WATCH_DIR"
+  cat > "$WATCH_DIR/latest.json" << WATCHEOF
+{"displayed":"$ABS_DISPLAY","source":"$ABS_INPUT","rendered":"$ABS_OUTPUT"}
+WATCHEOF
 fi
 
 # ── Structured output ────────────────────────────────────────────────────
 echo "[vizrender: $(basename "$ABS_INPUT") → $(basename "$ABS_OUTPUT")]"
 echo "[vizrender: source=$ABS_INPUT]"
 echo "[vizrender: rendered=$ABS_OUTPUT]"
-if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
-  # Resolve display file to absolute
-  ABS_DISPLAY="$(cd "$(dirname "$DISPLAY_FILE")" && pwd)/$(basename "$DISPLAY_FILE")"
+if [[ -n "${ABS_DISPLAY:-}" ]]; then
   echo "[vizrender: displayed=$ABS_DISPLAY]"
 fi
