@@ -11,15 +11,9 @@ description: >
 
 Render typst diagrams and display them via a floating preview window. The window auto-updates on each render.
 
-## CRITICAL: Be Terse — Render First, Talk Later
+## Behavior
 
-When the user asks you to visualize something, **render it immediately**. Do NOT:
-- Explain what you're about to draw before drawing it
-- Describe the diagram structure in words
-- List the steps you'll take
-- Narrate the rendering process
-
-**DO:** Gather the user's requirements → write .typ → vizrender → done. One short sentence of context at most. The image speaks for itself. If the user wants explanation, they'll ask.
+Render immediately. No preamble, no narration. Just write the .typ and call vizrender. The image is the response.
 
 ## IMPORTANT: Writing .typ Files
 
