@@ -12,6 +12,8 @@ fail() { ((FAIL++)); printf '  \033[31mFAIL\033[0m %s\n' "$1"; }
 
 # Create temp dir and a minimal .typ file for tests
 TMPDIR_TEST="$(mktemp -d)"
+# Isolate tests from real vizwatch — use a test-only watch dir
+export INLINE_VIZ_WATCH_DIR="$TMPDIR_TEST/.vizwatch"
 trap 'rm -rf "$TMPDIR_TEST"' EXIT
 TEST_TYP="$TMPDIR_TEST/hello.typ"
 cat > "$TEST_TYP" <<'TYPST'
