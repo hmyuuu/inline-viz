@@ -1,0 +1,10 @@
+# Test artifacts
+tests/*.svg
+tests/*.png
+tests/*.pdf
+
+# macOS
+.DS_Store
+
+# Typst cache
+.typst-cache/
