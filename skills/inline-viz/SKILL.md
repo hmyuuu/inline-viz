@@ -119,6 +119,6 @@ ${CLAUDE_PLUGIN_ROOT}/scripts/vizrender --open existing.png
 ## Troubleshooting
 
 - **typst not found**: Install via `brew install typst` or `cargo install typst-cli`
-- **Floating window not updating**: Check vizwatch is running (`${CLAUDE_PLUGIN_ROOT}/scripts/vizwatch`)
+- **tmux pane shows no image**: Add `set -g allow-passthrough on` to `~/.tmux.conf` and reload (`tmux source ~/.tmux.conf`). Required for kitty/iTerm2 graphics protocol inside tmux.
 - **No viewer at all**: Use `vizrender input.typ --open` to open in Preview.app
 - **SVG→PNG fails**: Install `librsvg` (`brew install librsvg`) or ImageMagick

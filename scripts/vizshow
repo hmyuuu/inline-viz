@@ -79,14 +79,29 @@ detect_protocol() {
 
 PROTO="${PROTOCOL:-$(detect_protocol)}"
 
+# ── tmux passthrough ─────────────────────────────────────────────────────
+# When inside tmux, escape sequences must be wrapped in DCS passthrough
+# so they reach the outer terminal. Requires: set -g allow-passthrough on
+IN_TMUX=false
+[[ -n "${TMUX:-}" ]] && IN_TMUX=true
+
+tmux_wrap_start() {
+  [[ "$IN_TMUX" == true ]] && printf '\033Ptmux;\033'
+}
+tmux_wrap_end() {
+  [[ "$IN_TMUX" == true ]] && printf '\033\\'
+}
+
 # ── Display functions ────────────────────────────────────────────────────
 
 display_iterm2() {
   local data
   data="$(base64 < "$ABS_PATH")"
-  printf '\033]1337;File=inline=1;width=%s:'  "$DISPLAY_WIDTH"
+  tmux_wrap_start
+  printf '\033]1337;File=inline=1;width=%s:' "$DISPLAY_WIDTH"
   printf '%s' "$data"
   printf '\a'
+  tmux_wrap_end
 }
 
 display_kitty() {
@@ -103,17 +118,23 @@ display_kitty() {
     if [[ $first -eq 1 ]]; then
       first=0
       if [[ $pos -ge $len ]]; then
-        # Single chunk
+        tmux_wrap_start
         printf '\033_Ga=T,f=100,q=2;%s\033\\' "$chunk"
+        tmux_wrap_end
       else
+        tmux_wrap_start
         printf '\033_Ga=T,f=100,m=1,q=2;%s\033\\' "$chunk"
+        tmux_wrap_end
       fi
     else
       if [[ $pos -ge $len ]]; then
-        # Last chunk
+        tmux_wrap_start
         printf '\033_Gm=0;%s\033\\' "$chunk"
+        tmux_wrap_end
       else
+        tmux_wrap_start
         printf '\033_Gm=1;%s\033\\' "$chunk"
+        tmux_wrap_end
       fi
     fi
   done
