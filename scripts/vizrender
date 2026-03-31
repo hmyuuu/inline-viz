@@ -3,7 +3,7 @@
 # Compiles .typ files, optionally displays inline via vizshow
 #
 # Usage: vizrender <input.typ> [--format svg|png|pdf] [--no-display] [--output PATH]
-#                               [--width N] [--open]
+#                               [--width N] [--open] [--root DIR] [--dpi N]
 #
 # Structured output:
 #   [vizrender: input.typ → output.svg]
@@ -23,6 +23,8 @@ DISPLAY=true
 OUTPUT=""
 WIDTH=""
 OPEN=false
+ROOT=""
+DPI=200
 
 # ── Argument parsing ─────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -33,6 +35,8 @@ while [[ $# -gt 0 ]]; do
     --output)      OUTPUT="$2";  shift 2 ;;
     --width)       WIDTH="$2";   shift 2 ;;
     --open)        OPEN=true;    shift   ;;
+    --root)        ROOT="$2";    shift 2 ;;
+    --dpi)         DPI="$2";     shift 2 ;;
     -*)
       echo "vizrender: unknown option: $1" >&2
       exit 1
@@ -83,7 +87,12 @@ else
 fi
 
 # ── Compile ───────────────────────────────────────────────────────────────
-if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$ABS_OUTPUT"; then
+TYPST_ARGS=(--input "template-dir=$TEMPLATE_DIR")
+if [[ -n "$ROOT" ]]; then
+  TYPST_ARGS+=(--root "$ROOT")
+fi
+
+if ! typst compile "${TYPST_ARGS[@]}" "$ABS_INPUT" "$ABS_OUTPUT"; then
   echo "vizrender: typst compile failed" >&2
   exit 1
 fi
@@ -137,21 +146,32 @@ if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]] && [[ "$DISPLAY" == true
   if [[ "$OPEN" == true ]]; then
     open "$DISPLAY_FILE"
   elif [[ -n "${TMUX:-}" ]]; then
-    # Inside tmux — open vizwatch in a terminal split pane
-    # (kitty/iterm2 protocol works via passthrough; needs allow-passthrough on)
+    # Inside tmux — open vizwatch in a split pane (auto-updates via watch dir)
     if ! tmux list-panes -F '#{pane_title}' 2>/dev/null | grep -q 'vizwatch'; then
       tmux split-window -h -l 40% \
         "${SCRIPT_DIR}/vizwatch" --mode terminal --clear \; \
         select-pane -T vizwatch \; \
         select-pane -l
+      # Give vizwatch a moment to start polling
       sleep 0.5
     fi
   elif [[ -n "${ZELLIJ:-}" ]]; then
-    # Inside zellij — no kitty graphics support, use browser floating window
-    if ! curl -s -o /dev/null "http://localhost:${INLINE_VIZ_PORT:-52342}/api/latest" 2>/dev/null; then
-      "${SCRIPT_DIR}/vizwatch" --mode browser &
-      disown
-      sleep 1
+    # Zellij doesn't support kitty graphics protocol or passthrough.
+    # Spawn a separate OS terminal window running vizwatch instead.
+    if ! pgrep -f "vizwatch.*--mode terminal" > /dev/null 2>&1; then
+      if [[ -n "${GHOSTTY_RESOURCES_DIR:-}" ]]; then
+        # Ghostty: open a new small OS window
+        ghostty -e "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
+      elif [[ -n "${KITTY_PID:-}" ]]; then
+        # Kitty: open a new OS window
+        kitty @ launch --type=os-window --title=vizwatch \
+          "${SCRIPT_DIR}/vizwatch" --mode terminal --clear 2>/dev/null \
+          || kitty -e "${SCRIPT_DIR}/vizwatch" --mode terminal --clear &
+      else
+        # Unknown terminal in zellij — fall back to browser mode
+        "${SCRIPT_DIR}/vizwatch" --mode browser &
+      fi
+      sleep 0.5
     fi
   else
     # Default: open in system viewer
