@@ -34,9 +34,21 @@ Output includes file paths:
 
 The PostToolUse hook detects `[vizrender: displayed=...]` and calls vizshow to render the image directly in the user's terminal.
 
+## IMPORTANT: Writing .typ Files
+
+**Always write .typ files using Bash** (`cat > file.typ << 'EOF' ... EOF`), **never the Write tool.** These are temporary rendering files, not project source code. Using Bash avoids "file already exists" errors and lets you write + render in a single Bash call:
+
+```bash
+cat > /tmp/diagram.typ << 'EOF'
+#set page(width: auto, height: auto, margin: 12pt)
+// your typst content here
+EOF
+${CLAUDE_PLUGIN_ROOT}/scripts/vizrender /tmp/diagram.typ
+```
+
 ## Core Workflow
 
-1. **Write** a `.typ` file (using a template or from scratch)
+1. **Write** a `.typ` file via Bash (cat heredoc) — never use the Write tool
 2. **Render**: `${CLAUDE_PLUGIN_ROOT}/scripts/vizrender input.typ`
 3. The **hook** displays the image inline automatically — you don't need to do anything extra
 4. **Reason from .typ source** for iteration — you already know the structure because you wrote it
