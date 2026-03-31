@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# vizrender — Typst Render Engine (Layer 2)
+# Compiles .typ files, optionally displays inline via vizshow
+#
+# Usage: vizrender <input.typ> [--format svg|png|pdf] [--no-display] [--output PATH]
+#                               [--width N] [--open]
+#
+# Structured output:
+#   [vizrender: input.typ → output.svg]
+#   [vizrender: source=/abs/path/input.typ]
+#   [vizrender: rendered=/abs/path/output.svg]
+#   [vizrender: displayed=/abs/path/output.png]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TEMPLATE_DIR="$(cd "$SCRIPT_DIR/../templates" && pwd)"
+
+# ── Defaults ──────────────────────────────────────────────────────────────
+INPUT=""
+FORMAT="svg"
+DISPLAY=true
+OUTPUT=""
+WIDTH=""
+OPEN=false
+
+# ── Argument parsing ─────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --format)      FORMAT="$2";  shift 2 ;;
+    --no-display)  DISPLAY=false; shift   ;;
+    --display)     DISPLAY=true;  shift   ;;
+    --output)      OUTPUT="$2";  shift 2 ;;
+    --width)       WIDTH="$2";   shift 2 ;;
+    --open)        OPEN=true;    shift   ;;
+    -*)
+      echo "vizrender: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -z "$INPUT" ]]; then
+        INPUT="$1"
+      else
+        echo "vizrender: unexpected argument: $1" >&2
+        exit 1
+      fi
+      shift
+      ;;
+  esac
+done
+
+# ── Validate input ────────────────────────────────────────────────────────
+if [[ -z "$INPUT" ]]; then
+  echo "vizrender: no input file specified" >&2
+  exit 1
+fi
+
+if [[ ! -f "$INPUT" ]]; then
+  echo "vizrender: not found: $INPUT" >&2
+  exit 1
+fi
+
+# ── Resolve paths ─────────────────────────────────────────────────────────
+ABS_INPUT="$(cd "$(dirname "$INPUT")" && pwd)/$(basename "$INPUT")"
+BASENAME="$(basename "$INPUT" .typ)"
+INPUT_DIR="$(dirname "$ABS_INPUT")"
+
+# Determine output path
+if [[ -n "$OUTPUT" ]]; then
+  # If OUTPUT is relative, resolve against input directory
+  if [[ "$OUTPUT" != /* ]]; then
+    ABS_OUTPUT="$(cd "$INPUT_DIR" && pwd)/$OUTPUT"
+  else
+    ABS_OUTPUT="$OUTPUT"
+  fi
+  # Infer format from extension if --format wasn't explicitly set
+  case "$ABS_OUTPUT" in
+    *.png) [[ "$FORMAT" == "svg" ]] && FORMAT="png" ;;
+    *.pdf) [[ "$FORMAT" == "svg" ]] && FORMAT="pdf" ;;
+  esac
+else
+  ABS_OUTPUT="${INPUT_DIR}/${BASENAME}.${FORMAT}"
+fi
+
+# ── Compile ───────────────────────────────────────────────────────────────
+if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$ABS_OUTPUT"; then
+  echo "vizrender: typst compile failed" >&2
+  exit 1
+fi
+
+# ── Prepare display file ─────────────────────────────────────────────────
+DISPLAY_FILE=""
+
+if [[ "$DISPLAY" == true ]] || [[ "$OPEN" == true ]]; then
+  case "$FORMAT" in
+    svg)
+      # Convert SVG → PNG for terminal display
+      DISPLAY_FILE="${INPUT_DIR}/${BASENAME}.png"
+      if [[ -x /opt/homebrew/bin/rsvg-convert ]]; then
+        /opt/homebrew/bin/rsvg-convert "$ABS_OUTPUT" -o "$DISPLAY_FILE"
+      elif command -v magick &>/dev/null; then
+        magick "$ABS_OUTPUT" "$DISPLAY_FILE"
+      else
+        # Fallback: compile directly to PNG via typst
+        if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$DISPLAY_FILE"; then
+          echo "vizrender: failed to create display PNG" >&2
+          DISPLAY_FILE=""
+        fi
+      fi
+      ;;
+    png)
+      DISPLAY_FILE="$ABS_OUTPUT"
+      ;;
+    pdf)
+      # Convert PDF → PNG for display via typst compile
+      DISPLAY_FILE="${INPUT_DIR}/${BASENAME}.png"
+      if ! typst compile --input "template-dir=$TEMPLATE_DIR" "$ABS_INPUT" "$DISPLAY_FILE"; then
+        echo "vizrender: failed to create display PNG from PDF" >&2
+        DISPLAY_FILE=""
+      fi
+      ;;
+  esac
+fi
+
+# ── Display or open ──────────────────────────────────────────────────────
+if [[ "$OPEN" == true ]] && [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
+  open "$DISPLAY_FILE"
+elif [[ "$DISPLAY" == true ]] && [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
+  WIDTH_ARG=""
+  if [[ -n "$WIDTH" ]]; then
+    WIDTH_ARG="--width $WIDTH"
+  fi
+  "$SCRIPT_DIR/vizshow" "$DISPLAY_FILE" $WIDTH_ARG || true
+fi
+
+# ── Structured output ────────────────────────────────────────────────────
+echo "[vizrender: $(basename "$ABS_INPUT") → $(basename "$ABS_OUTPUT")]"
+echo "[vizrender: source=$ABS_INPUT]"
+echo "[vizrender: rendered=$ABS_OUTPUT]"
+if [[ -n "$DISPLAY_FILE" ]] && [[ -f "$DISPLAY_FILE" ]]; then
+  # Resolve display file to absolute
+  ABS_DISPLAY="$(cd "$(dirname "$DISPLAY_FILE")" && pwd)/$(basename "$DISPLAY_FILE")"
+  echo "[vizrender: displayed=$ABS_DISPLAY]"
+fi
