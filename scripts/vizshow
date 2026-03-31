@@ -2,7 +2,7 @@
 # vizshow — Display an image inline in the terminal
 # Part of inline-viz (Layer 1)
 #
-# Usage: vizshow <image-file> [--width N] [--height N] [--protocol P] [--fallback F] [--quiet]
+# Usage: vizshow <image-file> [--width N] [--protocol P] [--quiet]
 #
 # Exit codes: 0=displayed, 1=error, 2=fallback (e.g. --protocol file)
 
@@ -11,18 +11,14 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────
 FILE=""
 WIDTH=""
-HEIGHT=""
 PROTOCOL=""
-FALLBACK=""
 QUIET=false
 
 # ── Argument parsing ─────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --width)   WIDTH="$2";    shift 2 ;;
-    --height)  HEIGHT="$2";   shift 2 ;;
     --protocol) PROTOCOL="$2"; shift 2 ;;
-    --fallback) FALLBACK="$2"; shift 2 ;;
     --quiet)   QUIET=true;    shift   ;;
     -*)
       echo "vizshow: unknown option: $1" >&2
@@ -88,8 +84,9 @@ PROTO="${PROTOCOL:-$(detect_protocol)}"
 display_iterm2() {
   local data
   data="$(base64 < "$ABS_PATH")"
-  printf '\033]1337;File=inline=1;width=%s;preserveAspectRatio=1:%s\a' \
-    "$DISPLAY_WIDTH" "$data"
+  printf '\033]1337;File=inline=1;width=%s:'  "$DISPLAY_WIDTH"
+  printf '%s' "$data"
+  printf '\a'
 }
 
 display_kitty() {
@@ -160,8 +157,6 @@ case "$PROTO" in
   imgcat)   display_imgcat   ;;
   kitten)   display_kitten   ;;
   fallback) display_fallback ;;
-  save)     display_fallback ;;
-  ascii)    display_fallback ;;
   *)
     echo "vizshow: unknown protocol: $PROTO" >&2
     exit 1
