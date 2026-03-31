@@ -1,0 +1,7 @@
+{
+  "name": "inline-viz",
+  "description": "Inline terminal visualization for scientific diagrams via typst",
+  "version": "0.1.0",
+  "author": { "name": "hmyuuu" },
+  "keywords": ["visualization", "typst", "terminal", "inline-image", "quantum", "tensor-network", "plotting"]
+}
