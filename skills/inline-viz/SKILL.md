@@ -9,7 +9,7 @@ description: >
 
 # Inline Visualization
 
-Render typst diagrams inline in the terminal. Agent can read back output for iterative refinement.
+Render typst diagrams inline in the terminal. A PostToolUse hook automatically displays the image after vizrender runs — the user sees it directly in their terminal.
 
 ## Quick Start
 
@@ -21,26 +21,34 @@ cat > /tmp/hello.typ << 'EOF'
 #alice(size: 3cm)
 EOF
 
-# 2. Render and display
+# 2. Render and display (hook shows it inline automatically)
 ${CLAUDE_PLUGIN_ROOT}/scripts/vizrender /tmp/hello.typ
 ```
 
-Output includes file paths for readback:
+Output includes file paths:
 ```
 [vizrender: source=/tmp/hello.typ]
 [vizrender: rendered=/tmp/hello.svg]
 [vizrender: displayed=/tmp/hello.png]
 ```
 
+The PostToolUse hook detects `[vizrender: displayed=...]` and calls vizshow to render the image directly in the user's terminal.
+
 ## Core Workflow
 
 1. **Write** a `.typ` file (using a template or from scratch)
 2. **Render**: `${CLAUDE_PLUGIN_ROOT}/scripts/vizrender input.typ`
-3. **Parse output** for `source=`, `rendered=`, `displayed=` paths
-4. **Readback** (choose based on need):
-   - Read `.typ` source → structural understanding, parameter modification
-   - Grep `.svg` XML → find specific nodes, labels, positions
-   - Read `.png` via Read tool → visual verification (uses vision tokens)
+3. The **hook** displays the image inline automatically — you don't need to do anything extra
+4. **Reason from .typ source** for iteration — you already know the structure because you wrote it
+5. **Only use vision readback** (Read the .png) when you cannot reason about layout from the source alone (e.g., judging aesthetic spacing, verifying visual overlap, confirming color contrast)
+
+## How Display Works
+
+vizrender compiles .typ → SVG → PNG and prints structured output. Since Claude Code captures Bash output as text (escape sequences don't render), a **PostToolUse hook** intercepts the output, extracts the displayed file path, and calls vizshow directly to the terminal. This bypasses Claude Code's output capture.
+
+- **You do NOT need to call vizshow separately** — the hook handles it
+- **You do NOT need to read the PNG** to confirm it displayed — trust the hook
+- **`--open` flag**: use `vizrender input.typ --open` to open in system viewer as an alternative
 
 ## Templates
 
@@ -59,23 +67,25 @@ Import via `sys.inputs.template-dir` (automatically set by vizrender):
 
 Writing `.typ` from scratch works for simple or custom diagrams.
 
-## Readback Decision Guide
+## Readback: When to Use What
 
-- **Modifying parameters** → read `.typ` source, change values, re-render
-- **Checking structure** → grep `.svg` for element names, positions, labels
-- **Verifying appearance** → read `.png` with Read tool (vision), costs tokens
-- **Iterating on layout** → source readback first, vision for final check
+**Default: reason from source.** You wrote the .typ file — you know the structure.
+
+- **Modifying parameters** → you already have the .typ in context, just edit and re-render
+- **Checking structure** → grep the .svg XML if you need positions/counts you didn't generate
+- **Vision readback** (Read .png) → **only when you cannot reason from source**: aesthetic judgment, verifying visual overlap, confirming colors render correctly, checking that labels are legible at the rendered size
 
 ## Iteration Pattern
 
 ```
 User: "move figure B to the left"
-Agent: [reads .typ source]
-       [modifies grid layout]
-       [vizrender updated.typ]
-       [reads .png to verify change looks right]
+Agent: [already knows the .typ structure — it wrote it]
+       [modifies grid layout in .typ]
+       [vizrender updated.typ]    ← hook shows it to user
        "Done — panel B is now on the left."
 ```
+
+No need to read the PNG back — you know what you changed.
 
 ## Live Update Pattern
 
@@ -84,14 +94,14 @@ Agent: [reads .typ source]
 loop:
   data = fetch_from_mcp()
   write data → plot.typ
-  vizrender plot.typ
+  vizrender plot.typ              ← hook shows each update
 
 # Fast updates (1-5s): use typst watch
 vizrender plot.typ --watch &
 loop:
   data = fetch_from_mcp()
   write data → plot.typ
-  vizshow output.png
+  vizshow output.png              ← manual display for fast mode
 ```
 
 ## Display-Only (no typst)
@@ -101,8 +111,10 @@ Show any existing image inline:
 ${CLAUDE_PLUGIN_ROOT}/scripts/vizshow image.png
 ```
 
+The hook also catches `[vizshow: ...]` output and re-displays if the escape sequences were captured.
+
 ## Troubleshooting
 
 - **typst not found**: Install via `brew install typst` or `cargo install typst-cli`
-- **No image in terminal**: Check terminal supports iTerm2/Kitty graphics protocol. Use `--protocol file` to just save.
+- **Image doesn't appear**: The PostToolUse hook may not be loaded. Verify with `/hooks`. Use `vizrender input.typ --open` as fallback to open in system viewer.
 - **SVG→PNG fails**: Install `librsvg` (`brew install librsvg`) or ImageMagick. Fallback: vizrender compiles directly to PNG.
